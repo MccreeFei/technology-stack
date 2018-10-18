@@ -1,0 +1,10 @@
+netty:
+  port: 8181
+
+logging:
+   config: classpath:log4j2.xml
+   level:
+      org:
+        springframework:
+          boot:
+            autoconfigure: ERROR
