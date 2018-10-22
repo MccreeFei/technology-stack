@@ -30,7 +30,6 @@ public class RpcInvoker implements InvocationHandler, MethodInterceptor {
     public Object invoke(Object proxy, Method method, Object[] parameters) throws Throwable {
         return doInvoke(method, parameters);
     }
-
     @Override
     public Object intercept(Object obj, Method method, Object[] parameters, MethodProxy proxy) throws Throwable {
        return doInvoke(method, parameters);
@@ -55,7 +54,7 @@ public class RpcInvoker implements InvocationHandler, MethodInterceptor {
         if (result == null){
             throw response.getException();
         }
-        //fastjson会将对象内部的Object对象反序列化为Map形式，这里需要手动cast result类型
+        //json会将对象内部的Object对象反序列化为Map形式，这里需要手动cast result类型
         if (result instanceof Map){
             result = TypeUtils.cast(result, method.getReturnType(), null);
         }
