@@ -9,20 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>rpc-server</artifactId>
-
-    <dependencies>
-        <dependency>
-            <groupId>cn.mccreefei.technologystack</groupId>
-            <artifactId>rpc-support</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>cn.mccreefei.technologystack</groupId>
-            <artifactId>rpc-api</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-    </dependencies>
+    <artifactId>rpc-api</artifactId>
 
 
 </project>

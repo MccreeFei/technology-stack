@@ -16,6 +16,9 @@
         <module>client</module>
         <module>server</module>
         <module>support</module>
+        <module>api</module>
+        <module>serverdemo1</module>
+        <module>serverdemo2</module>
     </modules>
 
 
@@ -24,7 +27,20 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
-
 
 </project>

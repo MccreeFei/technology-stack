@@ -1,5 +1,6 @@
 netty:
-  port: 8181
+  port: 8282
+  host: 127.0.0.1
 
 logging:
    config: classpath:log4j2.xml

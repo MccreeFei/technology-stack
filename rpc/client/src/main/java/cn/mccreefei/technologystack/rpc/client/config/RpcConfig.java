@@ -1,5 +1,6 @@
 package cn.mccreefei.technologystack.rpc.client.config;
 
+import cn.mccreefei.technologystack.rpc.api.RpcProxy;
 import cn.mccreefei.technologystack.rpc.support.service.RpcService;
 import cn.mccreefei.technologystack.rpc.client.proxy.RpcProxyFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -28,12 +29,12 @@ public class RpcConfig implements ApplicationContextAware, InitializingBean {
     private RpcProxyFactory proxyFactory;
     @Override
     public void afterPropertiesSet() throws Exception {
-        Reflections reflections = new Reflections("cn.mccreefei.technologystack.rpc.support.service");
-        Set<Class<?>> typesAnnotatedWith = reflections.getTypesAnnotatedWith(RpcService.class);
+        Reflections reflections = new Reflections("cn.mccreefei.technologystack.rpc.api");
+        Set<Class<?>> typesAnnotatedWith = reflections.getTypesAnnotatedWith(RpcProxy.class);
         if (!CollectionUtils.isEmpty(typesAnnotatedWith)){
             DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getAutowireCapableBeanFactory();
             typesAnnotatedWith.forEach(cls -> {
-                RpcService annotation = cls.getAnnotation(RpcService.class);
+                RpcProxy annotation = cls.getAnnotation(RpcProxy.class);
                 if (annotation.proxyTargetClass()){
                     beanFactory.registerSingleton(cls.getName(), proxyFactory.createInstance(cls, true));
                 }else {

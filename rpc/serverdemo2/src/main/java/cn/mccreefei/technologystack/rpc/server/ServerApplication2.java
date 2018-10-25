@@ -6,12 +6,12 @@ import org.springframework.context.annotation.ComponentScan;
 
 /**
  * @author MccreeFei
- * @create 2018-10-11 下午5:02
+ * @create 2018-10-25 上午9:44
  */
 @SpringBootApplication
-@ComponentScan(basePackages = "cn.mccreefei.technologystack.rpc")
-public class ServerApplication {
+@ComponentScan(basePackages = {"cn.mccreefei.technologystack.rpc.server", "cn.mccreefei.technologystack.rpc.support"})
+public class ServerApplication2 {
     public static void main(String[] args) {
-        SpringApplication.run(ServerApplication.class, args);
+        SpringApplication.run(ServerApplication2.class, args);
     }
 }

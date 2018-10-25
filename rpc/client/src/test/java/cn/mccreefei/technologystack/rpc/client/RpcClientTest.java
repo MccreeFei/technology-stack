@@ -1,8 +1,8 @@
 package cn.mccreefei.technologystack.rpc.client;
 
-import cn.mccreefei.technologystack.rpc.support.model.Address;
-import cn.mccreefei.technologystack.rpc.support.service.HelloService;
-import cn.mccreefei.technologystack.rpc.support.service.AddressService;
+import cn.mccreefei.technologystack.rpc.api.entity.Address;
+import cn.mccreefei.technologystack.rpc.api.service.AddressService;
+import cn.mccreefei.technologystack.rpc.api.service.HelloService;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,7 +26,7 @@ public class RpcClientTest {
         String content = helloService.sayHello("MccreeFei");
         System.out.println(content);
         AddressService addressService = context.getBean(AddressService.class);
-        Address address = addressService.getAddress();
+        Address address = addressService.getAddress("zhejiang", "hangzhou");
         System.out.println(address);
     }
 }

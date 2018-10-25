@@ -9,27 +9,16 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>rpc-client</artifactId>
-
+    <artifactId>rpc-server-demo1</artifactId>
     <dependencies>
         <dependency>
             <groupId>cn.mccreefei.technologystack</groupId>
-            <artifactId>rpc-support</artifactId>
+            <artifactId>rpc-api</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
         <dependency>
-            <groupId>cglib</groupId>
-            <artifactId>cglib</artifactId>
-            <version>3.2.5</version>
-        </dependency>
-        <dependency>
-            <groupId>org.reflections</groupId>
-            <artifactId>reflections</artifactId>
-            <version>0.9.10</version>
-        </dependency>
-        <dependency>
             <groupId>cn.mccreefei.technologystack</groupId>
-            <artifactId>rpc-api</artifactId>
+            <artifactId>rpc-server</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
     </dependencies>

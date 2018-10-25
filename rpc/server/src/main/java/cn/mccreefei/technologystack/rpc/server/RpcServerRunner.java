@@ -26,6 +26,8 @@ import java.net.InetSocketAddress;
 public class RpcServerRunner implements CommandLineRunner {
     @Value("${netty.port}")
     private int port;
+    @Value("${netty.host}")
+    private String host;
     @Resource
     private ServerInitializer serverInitializer;
     private EventLoopGroup bossGroup = new NioEventLoopGroup(1);
@@ -37,7 +39,7 @@ public class RpcServerRunner implements CommandLineRunner {
         serverBootstrap.group(bossGroup, workGroup)
                 .channel(NioServerSocketChannel.class)
                 .handler(new LoggingHandler(LogLevel.DEBUG))
-                .localAddress(new InetSocketAddress(port))
+                .localAddress(new InetSocketAddress(host, port))
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
                 .childHandler(serverInitializer);
         try {

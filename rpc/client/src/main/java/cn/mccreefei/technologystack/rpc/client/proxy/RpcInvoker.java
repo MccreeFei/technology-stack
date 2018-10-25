@@ -50,6 +50,9 @@ public class RpcInvoker implements InvocationHandler, MethodInterceptor {
                 .parameters(parameters).build();
         rpcClient.send(rpcRequest);
         RpcResponse response = requestPool.getResponse(requestId);
+        if (response == null){
+            return null;
+        }
         Object result = response.getResult();
         if (result == null){
             throw response.getException();

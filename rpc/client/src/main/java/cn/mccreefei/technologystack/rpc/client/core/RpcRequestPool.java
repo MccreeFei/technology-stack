@@ -1,9 +1,11 @@
 package cn.mccreefei.technologystack.rpc.client.core;
 
 import cn.mccreefei.technologystack.rpc.support.transport.RpcResponse;
+import io.netty.channel.Channel;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Promise;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -18,6 +20,7 @@ import java.util.concurrent.TimeoutException;
  * 需求池
  */
 @Component
+@Slf4j
 public class RpcRequestPool {
     private final Map<String, Promise<RpcResponse>> requestPool = new ConcurrentHashMap<>();
 
@@ -27,7 +30,12 @@ public class RpcRequestPool {
 
     public RpcResponse getResponse(String requestId) throws Exception {
         //获取远程调用结果 10s超时
-        RpcResponse rpcResponse = requestPool.get(requestId).get(10, TimeUnit.SECONDS);
+        Promise<RpcResponse> promise = requestPool.get(requestId);
+        //no service provided
+        if (promise == null){
+            return null;
+        }
+        RpcResponse rpcResponse = promise.get(10, TimeUnit.SECONDS);
         requestPool.remove(requestId);
         return rpcResponse;
     }
