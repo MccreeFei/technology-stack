@@ -1,6 +1,11 @@
-
 # Rpc
-整个项目基于SpringBoot，底层传输使用Netty提供支持，序列化使用Json，支持扩展。整个Rpc项目包含三个模块`rpc-client`，`rpc-sever`，`rpc-support`。另外整个项目使用了lombok减少代码量，请先下载lombok插件。
+- 核心模块：`rpc-client`, `rpc-server`,`rpc-support`,`rpc-api`
+- 整个项目基于SpringBoot，各模块解耦
+- 底层传输使用Netty，传输可靠性高
+- 服务注册与发现使用Zookeeper
+- 代理支持JDK动态代理与Cglib代理，使用注解方式发现服务与代理，使得配置更加灵活简洁
+- 序列化使用Json，传输可视化更好，支持扩展
+
 
 ## 整体流程
 ![rpc.png](https://i.loli.net/2018/10/19/5bc992a9d5a16.png)
@@ -70,24 +75,138 @@ public class JsonSerialization implements Serialization {
     }
 }
 ```
-### 服务发现
-Demo目前并没有实现诸如Zookeeper的服务注册发现机制，只是在当前模块下添加service包，表示该包模块下的所有Service已经被Server实现并且允许客户端调用。另外所有Service需添加RpcService的注解。
+### Zookeeper配置
 ```java
-/**
- * @author MccreeFei
- * @create 2018-10-17 下午3:21
- * RpcService注解 默认使用jdk动态代理 proxyTargetClass=true使用Cglib代理
- */
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface RpcService {
-    boolean proxyTargetClass() default false;
+public interface ConfigUtil {
+    /**
+     * zookeeper session超时事件 ms
+     */
+    int SESSION_TIME_OUT = 10000;
+    /**
+     * zookeeper中rpc根节点路径
+     */
+    String ROOT_PATH = "/rpcRoot";
+    /**
+     * zookeeper地址
+     */
+    String ADDRESS = "127.0.0.1:2181";
 }
 ```
-
------ 
+-----
 
 ## rpc-server
+### 服务注册
+#### 定义RpcService注解
+@RpcService注解使用在服务端提供的接口实现类上，属性value表示实现的是哪个Api接口。另外继承@Component注解以便Spring扫描注入。
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Component
+public @interface RpcService {
+    Class<?> value();
+}
+```
+#### 注册流程
+1. 连接Zookeeper服务器
+2. 创建rpc根节点
+3. 对应每一个服务实现类，创建服务接口节点并在该节点下创建该服务的地址节点
+比如现在注册一个`cn.mccreefei.xxx.XService`的服务接口，那么在Zookeeper的注册路径为`/rpcRoot/cn.mccreefei.xxx.XService/serverAddress`.
+```java
+@Component
+@Slf4j
+public class ServiceRegistry implements ApplicationContextAware{
+    private ZooKeeper zookeeper;
+    private String rootPath = ConfigUtil.ROOT_PATH;
+    @Value("${netty.host}")
+    private String serverHost;
+    @Value("${netty.port}")
+    private int serverPort;
+    private CountDownLatch countDownLatch = new CountDownLatch(1);
+
+    /**
+     * 连接Zookeeper服务器
+     * @throws IOException
+     */
+    private void connect() throws IOException {
+        String address = ConfigUtil.ADDRESS;
+        Integer sessionTimeOut = ConfigUtil.SESSION_TIME_OUT;
+        zookeeper = new ZooKeeper(address, sessionTimeOut, new Watcher() {
+            @Override
+            public void process(WatchedEvent watchedEvent) {
+                if (watchedEvent.getState().equals(Event.KeeperState.SyncConnected)){
+                    countDownLatch.countDown();
+                }
+            }
+        });
+    }
+
+    /**
+     * 创建根节点
+     */
+    private void createRootPath() {
+        try {
+            Stat stat = zookeeper.exists(rootPath, false);
+            if (stat == null){
+                zookeeper.create(rootPath, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+            }
+        } catch (KeeperException | InterruptedException e) {
+            log.error("", e);
+        }
+    }
+
+    /**
+     * 创建服务接口节点
+     * @param serviceName 服务接口名
+     */
+    private void createServiceNode(String serviceName){
+        try {
+            String servicePath = rootPath + "/" + serviceName;
+            Stat stat = zookeeper.exists(servicePath, false);
+            if (stat == null){
+                zookeeper.create(servicePath, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+            }
+        } catch (KeeperException | InterruptedException e) {
+            log.error("", e);
+        }
+    }
+
+    /**
+     * 创建服务接口地址节点
+     * @param serviceName 服务接口名
+     */
+    private void createServiceAddressNode(String serviceName){
+        createServiceNode(serviceName);
+        String serverAddress = serverHost + ":" + serverPort;
+        String serviceAddressPath = rootPath + "/" + serviceName + "/" + serverAddress;
+        try {
+            zookeeper.create(serviceAddressPath, serverAddress.getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
+        } catch (KeeperException | InterruptedException e) {
+            log.error("", e);
+        }
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
+        //连接zookeeper
+        try {
+            connect();
+            countDownLatch.await();
+        } catch (IOException | InterruptedException e) {
+            log.error("", e);
+        }
+        //创建根节点路径
+        createRootPath();
+        Map<String, Object> beansWithAnnotation = context.getBeansWithAnnotation(RpcService.class);
+        if (!CollectionUtils.isEmpty(beansWithAnnotation)){
+            beansWithAnnotation.values().forEach(serviceBean -> {
+                String serviceName = serviceBean.getClass().getAnnotation(RpcService.class).value().getName();
+                log.info("register @RpcService : " + serviceName);
+                createServiceAddressNode(serviceName);
+            });
+        }
+    }
+}
+```
 ### Rpc服务端编码解码
 根据传输协议，与序列化进行解码
 ```java
@@ -131,7 +250,7 @@ public class RpcServerEncoder extends MessageToByteEncoder<RpcResponse> {
 ```
 ### 反射调用
 Server根据发送过来的RpcRequest对象信息，进行反射调用，将结果写入Netty当中。
-```
+```java
  protected void channelRead0(ChannelHandlerContext ctx, RpcRequest rpcRequest) throws Exception {
         log.info("request from client : " + rpcRequest);
         RpcResponse rpcResponse = new RpcResponse();
@@ -153,33 +272,181 @@ Server根据发送过来的RpcRequest对象信息，进行反射调用，将结�
 -----
 
 ## rpc-client
-### 需求池
-Netty中的发送与接受都是异步的，所以需要一个需求池来暂存客户端发送的请求，客户端调用服务发送请求后会同步等待，当异步获取到服务端发送的响应时。响应与需求池中的请求通过requestId匹配，通知客户端获取到响应。
+### 发现Api接口创建代理类注入
+利用反射发现api包下所有含有RpcProxy注解的Service，根据注解配置的动态代理类型，实现该动态代理类型的实现并且注入到Spring容器。
 ```java
-@Component
-public class RpcRequestPool {
-    private final Map<String, Promise<RpcResponse>> requestPool = new ConcurrentHashMap<>();
-
-    public void addRequest(String requestId, EventExecutor executor){
-        requestPool.put(requestId, new DefaultPromise<RpcResponse>(executor));
-    }
-    public RpcResponse getResponse(String requestId) throws Exception {
-        //获取远程调用结果 10s超时
-        RpcResponse rpcResponse = requestPool.get(requestId).get(10, TimeUnit.SECONDS);
-        requestPool.remove(requestId);
-        return rpcResponse;
-    }
-    public void notifyRequest(String requestId, RpcResponse rpcResponse){
-        Promise<RpcResponse> promise = requestPool.get(requestId);
-        if (promise != null){
-            promise.setSuccess(rpcResponse);
+@Configuration
+@Slf4j
+public class RpcConfig implements ApplicationContextAware, InitializingBean {
+    private ApplicationContext context;
+    @Resource
+    private RpcProxyFactory proxyFactory;
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        Reflections reflections = new Reflections("cn.mccreefei.technologystack.rpc.api");
+        Set<Class<?>> typesAnnotatedWith = reflections.getTypesAnnotatedWith(RpcProxy.class);
+        if (!CollectionUtils.isEmpty(typesAnnotatedWith)){
+            DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getAutowireCapableBeanFactory();
+            typesAnnotatedWith.forEach(cls -> {
+                RpcProxy annotation = cls.getAnnotation(RpcProxy.class);
+                if (annotation.proxyTargetClass()){
+                    beanFactory.registerSingleton(cls.getName(), proxyFactory.createInstance(cls, true));
+                }else {
+                    beanFactory.registerSingleton(cls.getName(), proxyFactory.createInstance(cls, false));
+                }
+            });
         }
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.context = applicationContext;
+    }
+}
+
+```
+### 服务发现
+连接Zookeeper服务器，基于反射发现api包下所有具有@RpcProxy的接口，在Zookepper中查找服务所在的地址信息，维护Service -> Address的映射关系在AddressMap当中。
+```java
+@Slf4j
+public class ServiceRecovery {
+    private Map<String, String> serviceAddressMap;
+    private ZooKeeper zooKeeper;
+    private CountDownLatch countDownLatch = new CountDownLatch(1);
+    private final String rootPath = ConfigUtil.ROOT_PATH;
+
+    public ServiceRecovery(Map<String, String> serviceAddressMap){
+        this.serviceAddressMap = serviceAddressMap;
+    }
+    /**
+     * 连接Zookeeper
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private void connect() throws IOException, InterruptedException {
+        String zookeeperAddress = ConfigUtil.ADDRESS;
+        zooKeeper = new ZooKeeper(zookeeperAddress, ConfigUtil.SESSION_TIME_OUT, new Watcher() {
+            @Override
+            public void process(WatchedEvent watchedEvent) {
+                if (watchedEvent.getState().equals(Event.KeeperState.SyncConnected)){
+                    countDownLatch.countDown();
+                }
+            }
+        });
+        countDownLatch.await();
+    }
+
+    /**
+     * 发现服务对应的地址
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public void recoverService() throws IOException, InterruptedException {
+        connect();
+        Reflections reflections = new Reflections("cn.mccreefei.technologystack.rpc.api");
+        Set<Class<?>> typesAnnotatedWith = reflections.getTypesAnnotatedWith(RpcProxy.class);
+        Set<String> services = typesAnnotatedWith.stream().map(cls -> cls.getName()).collect(Collectors.toSet());
+        services.forEach(serviceName -> {
+            try {
+                String servicePath = rootPath + "/" + serviceName;
+                if (zooKeeper.exists(servicePath, false) != null){
+                    List<String> addressChildren = zooKeeper.getChildren(servicePath, false);
+                    if (!StringUtils.isEmpty(addressChildren)){
+                        //地址多于一个取第一个，可以扩展做负载均衡
+                        byte[] bytes = zooKeeper.getData(servicePath + "/" + addressChildren.get(0), false, null);
+                        String address = new String(bytes);
+                        serviceAddressMap.put(serviceName, address);
+                    }
+                }
+            } catch (KeeperException | InterruptedException e) {
+                log.error("", e);
+            }
+        });
     }
 }
 ```
+
+### 创建Netty连接
+#### ChannelHold
+ChannelHold为Channel与对应EventLoopGroup的封装类，封装便于在Bean销毁时能够有效释放连接资源。
+```java
+@Data
+public class ChannelHold {
+    private Channel channel;
+    private EventLoopGroup eventLoopGroup;
+    public ChannelHold(Channel channel, EventLoopGroup eventLoopGroup){
+        this.channel = channel;
+        this.eventLoopGroup = eventLoopGroup;
+    }
+}
+```
+#### 创建连接
+现对于服务发现的每一个服务地址，都创建一个Netty连接，并维护Address -> ChannelHold的映射。之所以这么设计，是为了同一个服务地址提供的服务能够使用同一个频道进行通讯，减少连接数提升效率。
+```java
+     /**
+     * 创建每一个服务地址的Netty连接
+     */
+    private void createNettyConnection(){
+        try {
+            serviceRecovery.recoverService();
+        } catch (IOException | InterruptedException e) {
+            log.error("service recover fail!", e);
+            return;
+        }
+        Set<String> addressSet = serviceAddressMap.values().stream().distinct().collect(Collectors.toSet());
+        if (StringUtils.isEmpty(addressSet)) {
+            return;
+        }
+        for (String address : addressSet){
+            String host = null;
+            Integer port = null;
+            try {
+                String[] split = address.split(":");
+                host = split[0];
+                port = Integer.valueOf(split[1]);
+            }catch (IndexOutOfBoundsException e){
+                log.error("address [{}] invalid!", address);
+                continue;
+            }
+            Bootstrap bootstrap = new Bootstrap();
+            EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
+            bootstrap.channel(NioSocketChannel.class)
+                    .group(eventLoopGroup)
+                    .remoteAddress(host, port)
+                    .handler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) throws Exception {
+                            ChannelPipeline pipeline = ch.pipeline();
+                            pipeline.addLast(new RpcClientEncoder(serialization));
+                            pipeline.addLast(new RpcClientDecoder(serialization));
+                            pipeline.addLast(rpcResponseHandler);
+                        }
+                    });
+            Channel channel = bootstrap.connect().channel();
+            ChannelHold channelHold = new ChannelHold(channel, eventLoopGroup);
+            addressChannelMap.put(address, channelHold);
+        }
+    }
+```
+#### 释放资源
+实现Spring提供的DisposableBean接口，在Bean销毁之前，释放Netty连接。
+```java
+  @Override
+    public void destroy() throws Exception {
+        if (addressChannelMap != null){
+            Collection<ChannelHold> channelHolds = addressChannelMap.values();
+            if (!CollectionUtils.isEmpty(channelHolds)){
+                channelHolds.forEach(channelHold -> {
+                    channelHold.getChannel().closeFuture();
+                    channelHold.getEventLoopGroup().shutdownGracefully();
+                });
+            }
+        }
+    }
+```
 ### 动态代理
 动态代理技术使得客户端进行Rpc服务调用时感觉与往常的本地调用一样。Spring Aop也使用了这个技术。动态代理有两种形式：Jdk动态代理和Cglib代理。区别就是Jdk动态代理由Jdk提供但只能基于有接口的类进行代理，没有接口的类是无法进行代理的。而Cglib是一个基于ASM的字节生成库，允许运行时对字节码进行修改和生成，Cglib本质是通过修改字节码使得代理类继承目标类进行实现。
-Demo同样实现了两种方式的代理，isTargetClass=true代表Cglib代理反之jdk代理，代理工厂实现：
+Demo同样实现了两种方式的代理，isTargetClass=true代表Cglib代理反之Jdk代理，代理工厂实现：
 ```java
 @Component
 @Slf4j
@@ -250,39 +517,9 @@ public class RpcInvoker implements InvocationHandler, MethodInterceptor {
     }
 }
 ```
-### 发现RpcService注入代理类
-利用反射发现service包下所有含有RpcService注解的Service，根据注解配置的动态代理类型，实现该动态代理类型的实现并且注入到Spring容器。
-```java
-@Configuration
-@Slf4j
-public class RpcConfig implements ApplicationContextAware, InitializingBean {
-    private ApplicationContext context;
-    @Resource
-    private RpcProxyFactory proxyFactory;
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        Reflections reflections = new Reflections("cn.mccreefei.technologystack.rpc.support.service");
-        Set<Class<?>> typesAnnotatedWith = reflections.getTypesAnnotatedWith(RpcService.class);
-        if (!CollectionUtils.isEmpty(typesAnnotatedWith)){
-            DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getAutowireCapableBeanFactory();
-            typesAnnotatedWith.forEach(cls -> {
-                RpcService annotation = cls.getAnnotation(RpcService.class);
-                if (annotation.proxyTargetClass()){
-                    beanFactory.registerSingleton(cls.getName(), proxyFactory.createInstance(cls, true));
-                }else {
-                    beanFactory.registerSingleton(cls.getName(), proxyFactory.createInstance(cls, false));
-                }
-            });
-        }
-    }
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.context = applicationContext;
-    }
-}
-```
+
 ### 测试
-Server端启动之后，调用如下测试方法：
+现创建两个Server模块`rpc-server-demo1`和`rpc-server-demo2`，都添加对`rpc-api`,`rpc-server`的依赖,配置不同的服务端口，分别实现`HelloService`与`AddressService`。在`rpc-client`下创建`RpcClientTest`测试类.
 ```java
 @SpringBootTest(classes = ClientApplication.class)
 @RunWith(SpringRunner.class)
@@ -295,14 +532,16 @@ public class RpcClientTest {
         String content = helloService.sayHello("MccreeFei");
         System.out.println(content);
         AddressService addressService = context.getBean(AddressService.class);
-        Address address = addressService.getAddress();
+        Address address = addressService.getAddress("zhejiang", "hangzhou");
         System.out.println(address);
     }
 }
 ```
-运行结果：
+成功调用，运行结果：
 
 > hello, MccreeFei!
 
 > Address(province=zhejiang, city=hangzhou)
+
+
 

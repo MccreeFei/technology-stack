@@ -34,7 +34,13 @@ import java.util.stream.Collectors;
 @Component
 @Slf4j
 public class RpcClient implements BeanPostProcessor, DisposableBean{
+    /**
+     * ServiceName -> ServerAddress
+     */
     private Map<String, String> serviceAddressMap = new ConcurrentHashMap<>();
+    /**
+     * ServerAddress -> Channel
+     */
     private Map<String, ChannelHold> addressChannelMap = new ConcurrentHashMap<>();
     @Resource
     private RpcRequestPool rpcRequestPool;
@@ -45,6 +51,10 @@ public class RpcClient implements BeanPostProcessor, DisposableBean{
     private ServiceRecovery serviceRecovery = new ServiceRecovery(serviceAddressMap);
 
 
+    /**
+     * 发送RpcRequest
+     * @param request
+     */
     public void send(RpcRequest request) {
         String serviceName = request.getClassName();
         String address = serviceAddressMap.get(serviceName);
@@ -63,7 +73,9 @@ public class RpcClient implements BeanPostProcessor, DisposableBean{
         }
     }
 
-    //创建Netty与Server的连接
+    /**
+     * 创建每一个服务地址的Netty连接
+     */
     private void createNettyConnection(){
         try {
             serviceRecovery.recoverService();

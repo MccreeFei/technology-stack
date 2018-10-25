@@ -33,6 +33,10 @@ public class ServiceRegistry implements ApplicationContextAware{
     private int serverPort;
     private CountDownLatch countDownLatch = new CountDownLatch(1);
 
+    /**
+     * 连接Zookeeper服务器
+     * @throws IOException
+     */
     private void connect() throws IOException {
         String address = ConfigUtil.ADDRESS;
         Integer sessionTimeOut = ConfigUtil.SESSION_TIME_OUT;
@@ -46,6 +50,9 @@ public class ServiceRegistry implements ApplicationContextAware{
         });
     }
 
+    /**
+     * 创建根节点
+     */
     private void createRootPath() {
         try {
             Stat stat = zookeeper.exists(rootPath, false);
@@ -57,6 +64,10 @@ public class ServiceRegistry implements ApplicationContextAware{
         }
     }
 
+    /**
+     * 创建服务接口节点
+     * @param serviceName 服务接口名
+     */
     private void createServiceNode(String serviceName){
         try {
             String servicePath = rootPath + "/" + serviceName;
@@ -69,6 +80,10 @@ public class ServiceRegistry implements ApplicationContextAware{
         }
     }
 
+    /**
+     * 创建服务接口地址节点
+     * @param serviceName 服务接口名
+     */
     private void createServiceAddressNode(String serviceName){
         createServiceNode(serviceName);
         String serverAddress = serverHost + ":" + serverPort;

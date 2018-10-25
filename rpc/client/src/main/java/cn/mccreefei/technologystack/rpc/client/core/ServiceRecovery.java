@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class ServiceRecovery {
-    private Map<String, String> serviceAddressMap = new ConcurrentHashMap<>();
+    private Map<String, String> serviceAddressMap;
     private ZooKeeper zooKeeper;
     private CountDownLatch countDownLatch = new CountDownLatch(1);
     private final String rootPath = ConfigUtil.ROOT_PATH;
@@ -46,7 +46,11 @@ public class ServiceRecovery {
     }
 
 
-    //连接zookeeper
+    /**
+     * 连接Zookeeper
+     * @throws IOException
+     * @throws InterruptedException
+     */
     private void connect() throws IOException, InterruptedException {
         String zookeeperAddress = ConfigUtil.ADDRESS;
         zooKeeper = new ZooKeeper(zookeeperAddress, ConfigUtil.SESSION_TIME_OUT, new Watcher() {
@@ -60,7 +64,11 @@ public class ServiceRecovery {
         countDownLatch.await();
     }
 
-    //发现服务对应的地址
+    /**
+     * 发现服务对应的地址
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void recoverService() throws IOException, InterruptedException {
         connect();
         Reflections reflections = new Reflections("cn.mccreefei.technologystack.rpc.api");
@@ -83,7 +91,4 @@ public class ServiceRecovery {
             }
         });
     }
-
-
-
 }

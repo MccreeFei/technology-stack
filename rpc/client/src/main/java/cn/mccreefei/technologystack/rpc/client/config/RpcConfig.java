@@ -1,7 +1,6 @@
 package cn.mccreefei.technologystack.rpc.client.config;
 
 import cn.mccreefei.technologystack.rpc.api.RpcProxy;
-import cn.mccreefei.technologystack.rpc.support.service.RpcService;
 import cn.mccreefei.technologystack.rpc.client.proxy.RpcProxyFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
