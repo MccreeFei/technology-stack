@@ -28,4 +28,22 @@ public class ReserveLinkedList {
         }
     }
 
+    /**
+     * 递归反转链表
+     * @param head
+     * @return
+     */
+    public ListNode recursiveReserveList(ListNode head) {
+        return helpRecursive(null, head);
+    }
+
+    private ListNode helpRecursive(ListNode left, ListNode right) {
+        if (right == null) {
+            return left;
+        }
+        ListNode next = right.next;
+        right.next = left;
+        return helpRecursive(right, next);
+    }
+
 }
