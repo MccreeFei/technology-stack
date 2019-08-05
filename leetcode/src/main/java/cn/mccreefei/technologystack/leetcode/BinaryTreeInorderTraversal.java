@@ -30,9 +30,7 @@ public class BinaryTreeInorderTraversal {
         if (root == null) {
             return;
         }
-        if (root.left != null) {
-            inOrder(root.left, res);
-        }
+        inOrder(root.left, res);
         res.add(root.val);
         inOrder(root.right, res);
     }
