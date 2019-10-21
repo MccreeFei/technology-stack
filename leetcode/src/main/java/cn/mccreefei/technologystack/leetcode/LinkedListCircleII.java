@@ -3,7 +3,8 @@ package cn.mccreefei.technologystack.leetcode;
 /**
  * @author MccreeFei
  * @create 2019-10-21 上午11:06
- * x1:链表head -> circle head 距离  x2:circle head -> meet node 距离 x3:meet node -> circle head的距离
+ * @refer <href>https://leetcode.com/problems/linked-list-cycle-ii/</href>
+ * @idea x1:链表head -> circle head 距离  x2:circle head -> meet node 距离 x3:meet node -> circle head的距离
  * fast走过距离 ： x1 + x2 + x3 + x2  slow走过距离 ： x1 + x2
  * x1 + x2 + x3 + x2 == 2(x1 + x2) =>  x3 == x1
  */
