@@ -4,7 +4,7 @@ package cn.mccreefei.technologystack.leetcode;
  * @author MccreeFei
  * @create 2020-03-01 下午3:04
  * @refer <href>https://leetcode.com/problems/linked-list-in-binary-tree/</href>
- * @idea 递归
+ * @idea 递归 从每一个树节点往下遍历找连续的链表节点
  */
 public class LinkedListInBinaryTree {
     public class ListNode {
