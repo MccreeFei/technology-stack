@@ -10,6 +10,7 @@
         <module>rpc</module>
         <module>nio</module>
         <module>leetcode</module>
+        <module>springboot</module>
     </modules>
     <packaging>pom</packaging>
 
